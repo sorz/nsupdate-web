@@ -16,12 +16,37 @@ It's a single-file Python 3 script accepting HTTP requests and changing DNS reco
 Print usages:
 
 ```
-./ddns-server.py -h
+$ ./ddns-server.py -h
+usage: ddns-server.py [-h] [-l ADDRESS] [-p PORT] [-m FILE-MODE]
+                      [-k HOST-FILE] [-d DOMAIN_SUFFIX]
+                      [--nsupdate NSUPDATE-PATH] [--ttl SECONDS]
+                      [--max-ip MAX-IP] [--timeout SECONDS]
+
+Web API for update DNS records.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -l ADDRESS, --listen-addr ADDRESS
+                        The address bind to, default to 127.0.0.1. Set a path
+                        to listen on Unix domain socket.
+  -p PORT, --listen-port PORT
+  -m FILE-MODE, --socket-mode FILE-MODE
+                        File mode (chmod) of Unix domain socket, default to
+                        660. Ignored on TCP mode.
+  -k HOST-FILE, --host-list HOST-FILE
+                        The json file contains hostname-key pairs.
+  -d DOMAIN_SUFFIX, --domain DOMAIN_SUFFIX
+                        Example: dyn.example.com
+  --nsupdate NSUPDATE-PATH
+  --ttl SECONDS
+  --max-ip MAX-IP       Max allowed number of IPs on each name.
+  --timeout SECONDS     Max waitting time for nsupdate.
+
 ```
 
 Serving _dyn.example.com_ on _127.0.0.1:8080_:
 ```
-./dns-server.py -l 127.0.0.1 -p 8080 -k hosts.json -d dyn.example.com
+$ ./dns-server.py -l 127.0.0.1 -p 8080 -k hosts.json -d dyn.example.com
 ```
 _hosts.json_ is a JSON file which contains all hostname-password pairs:
 ```
