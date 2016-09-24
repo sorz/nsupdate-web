@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 from base64 import b64decode
+from argparse import ArgumentParser
 from ipaddress import ip_address, IPv4Address
 from subprocess import Popen, PIPE
 from urllib.parse import urlparse, parse_qs
@@ -96,9 +97,33 @@ def update_record(domain, addrs):
         return True, "success"
 
 
+def _get_args():
+    parser = ArgumentParser(description='Web API for update DNS records.',
+                            epilog='Author: Shell Chen <me@sorz.org>.')
+    parser.add_argument('-l', '--listen-addr',
+                        default='127.0.0.1', metavar='ADDRESS',
+                        help='The address bind to, default to lo.')
+    parser.add_argument('-p', '--listen-port',
+                        default=8080, type=int, metavar='PORT')
+    parser.add_argument('-k', '--host-list',
+                        metavar='HOST-FILE',
+                        help='The json file contains hostname-key pairs.')
+    parser.add_argument('--nsupdate',
+                        default='/usr/bin/nsupdate', metavar='NSUPDATE-PATH')
+    parser.add_argument('--ttl',
+                        default='300', type=int, metavar='SECONDS')
+    parser.add_argument('--max-ip',
+                        default='32', type=int, metavar='MAX-IP',
+                        help='Max allowed number of IPs on each name.')
+    return parser.parse_args()
+
+
 def main():
-    server = HTTPServer(BIND_ADDRESS, HTTPRequestHandler)
-    server.host_auth = json.load(open(PASSWORD_FILE))
+    args = _get_args()
+    HTTPRequestHandler.args = args
+    server = HTTPServer((args.listen_addr, args.listen_port),
+                        HTTPRequestHandler)
+    server.host_auth = json.load(open(args.host_list))
     server.serve_forever()
 
 
