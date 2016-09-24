@@ -41,7 +41,7 @@ $ dig +short test.dyn.example.com
 
 $ curl https://test:pwd123@dyn.example.com/update?ip=192.0.2.8
 > success
-$ dig +short <hostname>.ddns.sorz.org
+$ dig +short test.dyn.example.com
 > 192.0.2.8
 
 $ curl https://elder:mogic@dyn.example.com/update?ip=2001:DB8::1968:08:17&ip=192.0.2.8&ip=198.51.100.5
@@ -51,7 +51,7 @@ $ dig +short elder.dyn.example.com aaaa
 $ dig +short elder.dyn.example.com a
 > 192.0.2.8
   198.51.100.5
-      
+
 ```
 
 
@@ -64,11 +64,11 @@ $ dig +short elder.dyn.example.com a
 * Nginx (for rewriting URLs and HTTPS support)
 * `nsupdate` (possibly included in BIND)
 
-Note that this script only communicate with BIND via `nsupdate`, so you have to configure your BIND server allowing update records with `nsupdate` tool. 
+Note that this script only communicate with BIND via `nsupdate`, so you have to configure your BIND server allowing updating records with `nsupdate` tool. 
 
 ### Run as a service
 
-Add this systemd service file to `/etc/systemd/system/ddns-server.service`:
+Add this systemd service file as `/etc/systemd/system/ddns-server.service`:
 
 ```
 [Unit]
@@ -101,7 +101,7 @@ server {
     location / {
     	root /srv/http/ddns;
         index index.html;
-        # Provide some helpful explanation here.
+        # Provide some helpful explanations here.
     }
     
     location = /update {
