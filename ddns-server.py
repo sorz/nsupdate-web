@@ -3,6 +3,7 @@ import sys
 import json
 from json import JSONDecodeError
 from base64 import b64decode
+from pathlib import Path
 from argparse import ArgumentParser
 from ipaddress import ip_address, IPv4Address
 from subprocess import Popen, PIPE
@@ -117,9 +118,14 @@ def _get_args():
                             epilog='Author: Shell Chen <me@sorz.org>.')
     parser.add_argument('-l', '--listen-addr',
                         default='127.0.0.1', metavar='ADDRESS',
-                        help='The address bind to, default to 127.0.0.1.')
+                        help='The address bind to, default to 127.0.0.1. '
+                             'Set a path to listen on Unix domain socket.')
     parser.add_argument('-p', '--listen-port',
                         default=8080, type=int, metavar='PORT')
+    parser.add_argument('-m', '--socket-mode',
+                        default='660', metavar='FILE-MODE',
+                        help='File mode (chmod) of Unix domain socket, default to 660. '
+                             'Ignored on TCP mode.')
     parser.add_argument('-k', '--host-list',
                         metavar='HOST-FILE',
                         help='The json file contains hostname-key pairs.')
@@ -158,18 +164,24 @@ def main():
 
     if args.listen_addr.startswith('/'):
         # A unix socket address
+        sock = Path(args.listen_addr)
+        if sock.is_socket():
+            sock.unlink()
         if UnixHTTPServer is None:
             print('Unix domain socket is unsupported on this platform.')
             sys.exit(1)
-        server = UnixHTTPServer(args.listen_addr, HTTPRequestHandler)
+        server = UnixHTTPServer(str(sock), HTTPRequestHandler)
+        sock.chmod(int(args.socket_mode, 8))
     else:
         server = HTTPServer((args.listen_addr, args.listen_port),
                             HTTPRequestHandler)
 
     server.args = args
     server.host_auth = host_auth
-    server.serve_forever()
-
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print('Exit on ^C.')
 
 if __name__ == '__main__':
     main()
