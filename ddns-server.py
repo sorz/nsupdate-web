@@ -8,15 +8,6 @@ from urllib.parse import urlparse, parse_qs
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 
-BIND_ADDRESS = ('127.0.0.1', 8080)
-DOMAIN_SUFFIX = ".dyn.example.com"
-TTL = 180
-TIMEOUT = 3
-MAX_ADDR_PRE_NAME = 32
-PASSWORD_FILE = "/var/named/ddns-hosts.json"
-NSUPDATE = "/usr/bin/nsupdate"
-
-
 class HTTPRequestHandler(BaseHTTPRequestHandler):
     _host_ip_cache = {}
 
@@ -28,7 +19,7 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
     def send_unauthorized(self):
         self.send_response(401, 'Not Authorized')
         self.send_header('WWW-Authenticate', 
-                         'Basic realm="%s"' % DOMAIN_SUFFIX)
+                         'Basic realm="%s"' % self.args.domain)
         self.end_headers()
         self.wfile.write(b'no auth')
 
@@ -39,8 +30,8 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             return
 
         host, pwd = b64decode(auth[6:]).decode().split(':', 1)
-        if host.endswith(DOMAIN_SUFFIX):
-            host = host[:-len(DOMAIN_SUFFIX)]
+        if host.endswith(self.args.domain):
+            host = host[:-len(self.args.domain)]
         if self.server.host_auth.get(host) != pwd:
             self.send_unauthorized()
             return
@@ -60,15 +51,16 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             self.send('broken address\n%s' % e, 400)
             return
 
-        if len(ip) > MAX_ADDR_PRE_NAME:
-            self.send('too many addresses\nmax %s' % MAX_ADDR_PRE_NAME, 400)
+        if len(ip) > self.args.max_ip:
+            self.send('too many addresses\nmax %s' % self.args.max_ip, 400)
             return
 
         if self._host_ip_cache.get(host) == ip:
             self.send('no-change', 200)
             return
 
-        ok, msg = update_record(host + DOMAIN_SUFFIX, ip)
+        ok, msg = update_record('%s.%s' % (host, self.args.domain),
+                                ip, self.args)
         if ok:
             self._host_ip_cache[host] = ip
             self.send(msg, 200)
@@ -76,17 +68,17 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             self.send(msg, 500)
 
 
-def update_record(domain, addrs):
-    nsupdate = Popen([NSUPDATE, '-l'], universal_newlines=True,
+def update_record(domain, addrs, args):
+    nsupdate = Popen([args.nsupdate, '-l'], universal_newlines=True,
                      stdin=PIPE, stdout=PIPE, stderr=PIPE)
     cmdline = ["del %s" % domain]
     for addr in addrs:
         type = 'A' if isinstance(addr, IPv4Address) else 'AAAA'
         cmdline += ["add {domain} {ttl} {type} {ip}"
-                    .format(ttl=TTL, domain=domain, ip=addr, type=type)]
+                    .format(ttl=args.ttl, domain=domain, ip=addr, type=type)]
     cmdline += ["send", "quit"]
     try:
-        outs, errs = nsupdate.communicate('\n'.join(cmdline), 3)
+        outs, errs = nsupdate.communicate('\n'.join(cmdline), args.timeout)
     except TimeoutExpired:
         nsupdate.kill()
         return False, "timeout"
@@ -102,12 +94,15 @@ def _get_args():
                             epilog='Author: Shell Chen <me@sorz.org>.')
     parser.add_argument('-l', '--listen-addr',
                         default='127.0.0.1', metavar='ADDRESS',
-                        help='The address bind to, default to lo.')
+                        help='The address bind to, default to 127.0.0.1.')
     parser.add_argument('-p', '--listen-port',
                         default=8080, type=int, metavar='PORT')
     parser.add_argument('-k', '--host-list',
                         metavar='HOST-FILE',
                         help='The json file contains hostname-key pairs.')
+    parser.add_argument('-d', '--domain',
+                        metavar='DOMAIN_SUFFIX',
+                        help='Example: dyn.example.com')
     parser.add_argument('--nsupdate',
                         default='/usr/bin/nsupdate', metavar='NSUPDATE-PATH')
     parser.add_argument('--ttl',
@@ -115,6 +110,10 @@ def _get_args():
     parser.add_argument('--max-ip',
                         default='32', type=int, metavar='MAX-IP',
                         help='Max allowed number of IPs on each name.')
+    parser.add_argument('--timeout',
+                        default='3', type=int, metavar='SECONDS',
+                        help='Max waitting time for nsupdate.')
+
     return parser.parse_args()
 
 
