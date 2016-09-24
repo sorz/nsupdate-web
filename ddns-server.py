@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
+import sys
 import json
+from json import JSONDecodeError
 from base64 import b64decode
 from argparse import ArgumentParser
 from ipaddress import ip_address, IPv4Address
@@ -122,7 +124,20 @@ def main():
     HTTPRequestHandler.args = args
     server = HTTPServer((args.listen_addr, args.listen_port),
                         HTTPRequestHandler)
-    server.host_auth = json.load(open(args.host_list))
+    if args.host_list is None:
+        print('Please specify --host-list.')
+        sys.exit(1)
+    if args.domain is None:
+        print('Please specify --domain.')
+        sys.exit(1)
+    try:
+        with open(args.host_list) as f:
+            server.host_auth = json.load(f)
+    except (FileNotFoundError, JSONDecodeError, PermissionError) as e:
+        print('Cannot read host list file %s.' % args.host_list)
+        print(e)
+        sys.exit(2)
+
     server.serve_forever()
 
 
