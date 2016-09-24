@@ -7,7 +7,22 @@ from argparse import ArgumentParser
 from ipaddress import ip_address, IPv4Address
 from subprocess import Popen, PIPE
 from urllib.parse import urlparse, parse_qs
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler
+from socketserver import ThreadingTCPServer
+try:
+    from socketserver import ThreadingUnixStreamServer
+except ImportError:
+    ThreadingUnixStreamServer = None
+
+
+class HTTPServer(ThreadingTCPServer):
+    allow_reuse_address = 1
+
+
+if ThreadingUnixStreamServer is not None:
+    class UnixHTTPServer(ThreadingUnixStreamServer): pass
+else:
+    UnixHTTPServer = None
 
 
 class HTTPRequestHandler(BaseHTTPRequestHandler):
@@ -21,9 +36,14 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
     def send_unauthorized(self):
         self.send_response(401, 'Not Authorized')
         self.send_header('WWW-Authenticate', 
-                         'Basic realm="%s"' % self.args.domain)
+                         'Basic realm="%s"' % self.server.args.domain)
         self.end_headers()
         self.wfile.write(b'no auth')
+
+    def handle_one_request(self):
+        if not self.client_address:
+            self.client_address = ('unknown', 0)
+        super().handle_one_request()
 
     def do_GET(self):
         auth = self.headers.get('Authorization', '')
@@ -32,8 +52,8 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             return
 
         host, pwd = b64decode(auth[6:]).decode().split(':', 1)
-        if host.endswith(self.args.domain):
-            host = host[:-len(self.args.domain)]
+        if host.endswith(self.server.args.domain):
+            host = host[:-len(self.server.args.domain)]
         if self.server.host_auth.get(host) != pwd:
             self.send_unauthorized()
             return
@@ -43,6 +63,7 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             ip = [s.strip() for s in args['ip']]
         elif 'X-Real-IP' in self.headers:
             ip = [self.headers['X-Real-IP']]
+            self.client_address = (ip[0], self.client_address[1])
         else:
             self.send('no address', 400)
             return
@@ -53,16 +74,16 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             self.send('broken address\n%s' % e, 400)
             return
 
-        if len(ip) > self.args.max_ip:
-            self.send('too many addresses\nmax %s' % self.args.max_ip, 400)
+        if len(ip) > self.server.args.max_ip:
+            self.send('too many addresses\nmax %s' % self.server.args.max_ip, 400)
             return
 
         if self._host_ip_cache.get(host) == ip:
             self.send('no-change', 200)
             return
 
-        ok, msg = update_record('%s.%s' % (host, self.args.domain),
-                                ip, self.args)
+        ok, msg = update_record('%s.%s' % (host, self.server.args.domain),
+                                ip, self.server.args)
         if ok:
             self._host_ip_cache[host] = ip
             self.send(msg, 200)
@@ -121,9 +142,6 @@ def _get_args():
 
 def main():
     args = _get_args()
-    HTTPRequestHandler.args = args
-    server = HTTPServer((args.listen_addr, args.listen_port),
-                        HTTPRequestHandler)
     if args.host_list is None:
         print('Please specify --host-list.')
         sys.exit(1)
@@ -132,12 +150,24 @@ def main():
         sys.exit(1)
     try:
         with open(args.host_list) as f:
-            server.host_auth = json.load(f)
+            host_auth = json.load(f)
     except (FileNotFoundError, JSONDecodeError, PermissionError) as e:
         print('Cannot read host list file %s.' % args.host_list)
         print(e)
         sys.exit(2)
 
+    if args.listen_addr.startswith('/'):
+        # A unix socket address
+        if UnixHTTPServer is None:
+            print('Unix domain socket is unsupported on this platform.')
+            sys.exit(1)
+        server = UnixHTTPServer(args.listen_addr, HTTPRequestHandler)
+    else:
+        server = HTTPServer((args.listen_addr, args.listen_port),
+                            HTTPRequestHandler)
+
+    server.args = args
+    server.host_auth = host_auth
     server.serve_forever()
 
 
