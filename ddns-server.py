@@ -97,8 +97,11 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             self.send('no-change', 200)
             return
 
-        ok, msg = update_record('%s.%s' % (host, self.server.args.domain),
-                                ip, self.server.args)
+        ok, msg = update_record(
+            host,
+            ip,
+            self.server.args
+        )
         if ok:
             self._host_ip_cache[host] = ip
             self.send(msg, 200)
@@ -106,7 +109,7 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             self.send(msg, 500)
 
 
-def update_record(domain, addrs, args):
+def update_record(host, addrs, args):
     popen_args = [args.nsupdate]
     if args.key_file:
         popen_args.extend(['-k', args.key_file])
@@ -120,11 +123,17 @@ def update_record(domain, addrs, args):
         stdout=PIPE,
         stderr=PIPE,
     )
-    cmdline = ["update delete %s" % domain]
+    cmdline = list()
+    if args.server:
+        cmdline.append("server %s" % args.server)
+    fqdn = "%s.%s" % (host, args.domain)
+    cmdline.append("zone %s" % args.domain)
+    cmdline.append("update delete %s" % fqdn)
+
     for addr in addrs:
         type = 'A' if isinstance(addr, IPv4Address) else 'AAAA'
-        cmdline += ["update add {domain} {ttl} {type} {ip}"
-                    .format(ttl=args.ttl, domain=domain, ip=addr, type=type)]
+        cmdline += ["update add {fqdn} {ttl} {type} {ip}"
+                    .format(ttl=args.ttl, fqdn=fqdn, ip=addr, type=type)]
     cmdline += ["send", "quit"]
     try:
         outs, errs = nsupdate.communicate('\n'.join(cmdline), args.timeout)
@@ -147,6 +156,8 @@ def _get_args():
                              'Set a path to listen on Unix domain socket.')
     parser.add_argument('-p', '--listen-port',
                         default=8080, type=int, metavar='PORT')
+    parser.add_argument('-s', '--server',
+                        help='The remote nameserver')
     parser.add_argument('-m', '--socket-mode',
                         default='660', metavar='FILE-MODE',
                         help='File mode (chmod) of Unix domain socket, '
