@@ -21,7 +21,8 @@ class HTTPServer(ThreadingTCPServer):
 
 
 if ThreadingUnixStreamServer is not None:
-    class UnixHTTPServer(ThreadingUnixStreamServer): pass
+    class UnixHTTPServer(ThreadingUnixStreamServer):
+        pass
 else:
     UnixHTTPServer = None
 
@@ -76,7 +77,8 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             return
 
         if len(ip) > self.server.args.max_ip:
-            self.send('too many addresses\nmax %s' % self.server.args.max_ip, 400)
+            msg = 'too many addresses\nmax %s' % self.server.args.max_ip
+            self.send(msg, 400)
             return
 
         if self._host_ip_cache.get(host) == ip:
@@ -124,8 +126,8 @@ def _get_args():
                         default=8080, type=int, metavar='PORT')
     parser.add_argument('-m', '--socket-mode',
                         default='660', metavar='FILE-MODE',
-                        help='File mode (chmod) of Unix domain socket, default to 660. '
-                             'Ignored on TCP mode.')
+                        help='File mode (chmod) of Unix domain socket, '
+                             'default to 660. Ignored on TCP mode.')
     parser.add_argument('-k', '--host-list',
                         metavar='HOST-FILE',
                         help='The json file contains hostname-key pairs.')
