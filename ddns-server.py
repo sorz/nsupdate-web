@@ -5,7 +5,7 @@ from json import JSONDecodeError
 from base64 import b64decode
 from pathlib import Path
 from argparse import ArgumentParser
-from ipaddress import ip_address, IPv4Address
+from ipaddress import ip_address, IPv4Address, AddressValueError
 from subprocess import Popen, PIPE
 from urllib.parse import urlparse, parse_qs
 from http.server import BaseHTTPRequestHandler
@@ -36,7 +36,7 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
 
     def send_unauthorized(self):
         self.send_response(401, 'Not Authorized')
-        self.send_header('WWW-Authenticate', 
+        self.send_header('WWW-Authenticate',
                          'Basic realm="%s"' % self.server.args.domain)
         self.end_headers()
         self.wfile.write(b'no auth')
