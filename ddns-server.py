@@ -48,21 +48,33 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
         super().handle_one_request()
 
     def do_GET(self):
-        auth = self.headers.get('Authorization', '')
-        if not auth.startswith('Basic '):
-            self.send_unauthorized()
-            return
+        if self.server.host_auth is not None:
+            auth = self.headers.get('Authorization', '')
+            if not auth.startswith('Basic '):
+                self.send_unauthorized()
+                return
 
-        host, pwd = b64decode(auth[6:]).decode().split(':', 1)
-        if host.endswith(self.server.args.domain):
-            host = host[:-len(self.server.args.domain)]
-        if self.server.host_auth.get(host) != pwd:
-            self.send_unauthorized()
-            return
+            host, pwd = b64decode(auth[6:]).decode().split(':', 1)
+            if host.endswith(self.server.args.domain):
+                host = host[:-len(self.server.args.domain)]
+
+            if self.server.host_auth.get(host) != pwd:
+                self.send_unauthorized()
+                return
 
         args = parse_qs(urlparse(self.path).query)
+        if self.server.host_auth is None:
+            try:
+                host = args['name'][0]
+            except KeyError:
+                self.send("Must specify 'name'", 400)
+                return
         if 'ip' in args:
-            ip = [s.strip() for s in args['ip']]
+            try:
+                ip = [s.strip() for s in args['ip']]
+            except KeyError:
+                self.send("Must specify 'ip'", 400)
+                return
         elif 'X-Real-IP' in self.headers:
             ip = [self.headers['X-Real-IP']]
             self.client_address = (ip[0], self.client_address[1])
@@ -150,19 +162,19 @@ def _get_args():
 
 def main():
     args = _get_args()
-    if args.host_list is None:
-        print('Please specify --host-list.')
-        sys.exit(1)
     if args.domain is None:
         print('Please specify --domain.')
         sys.exit(1)
-    try:
-        with open(args.host_list) as f:
-            host_auth = json.load(f)
-    except (FileNotFoundError, JSONDecodeError, PermissionError) as e:
-        print('Cannot read host list file %s.' % args.host_list)
-        print(e)
-        sys.exit(2)
+
+    host_auth = None
+    if args.host_list is not None:
+        try:
+            with open(args.host_list) as f:
+                host_auth = json.load(f)
+        except (FileNotFoundError, JSONDecodeError, PermissionError) as e:
+            print('Cannot read host list file %s.' % args.host_list)
+            print(e)
+            sys.exit(2)
 
     if args.listen_addr.startswith('/'):
         # A unix socket address
