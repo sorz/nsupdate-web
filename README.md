@@ -46,7 +46,7 @@ optional arguments:
 
 Serving _dyn.example.com_ on _127.0.0.1:8080_:
 ```
-$ ./dns-server.py -l 127.0.0.1 -p 8080 -k hosts.json -d dyn.example.com
+$ ./ddns-server.py -l 127.0.0.1 -p 8080 -k hosts.json -d dyn.example.com
 ```
 _hosts.json_ is a JSON file which contains all hostname-password pairs:
 ```
