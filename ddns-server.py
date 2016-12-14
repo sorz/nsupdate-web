@@ -6,7 +6,7 @@ from base64 import b64decode
 from pathlib import Path
 from argparse import ArgumentParser
 from ipaddress import ip_address, IPv4Address, AddressValueError
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, TimeoutExpired
 from urllib.parse import urlparse, parse_qs
 from http.server import BaseHTTPRequestHandler
 from socketserver import ThreadingTCPServer
