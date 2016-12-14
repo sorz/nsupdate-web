@@ -120,10 +120,10 @@ def update_record(domain, addrs, args):
         stdout=PIPE,
         stderr=PIPE,
     )
-    cmdline = ["del %s" % domain]
+    cmdline = ["update delete %s" % domain]
     for addr in addrs:
         type = 'A' if isinstance(addr, IPv4Address) else 'AAAA'
-        cmdline += ["add {domain} {ttl} {type} {ip}"
+        cmdline += ["update add {domain} {ttl} {type} {ip}"
                     .format(ttl=args.ttl, domain=domain, ip=addr, type=type)]
     cmdline += ["send", "quit"]
     try:
