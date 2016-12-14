@@ -107,8 +107,19 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 def update_record(domain, addrs, args):
-    nsupdate = Popen([args.nsupdate, '-l'], universal_newlines=True,
-                     stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    popen_args = [args.nsupdate]
+    if args.key_file:
+        popen_args.extend(['-k', args.key_file])
+    else:
+        popen_args.append('-l')
+
+    nsupdate = Popen(
+        popen_args,
+        universal_newlines=True,
+        stdin=PIPE,
+        stdout=PIPE,
+        stderr=PIPE,
+    )
     cmdline = ["del %s" % domain]
     for addr in addrs:
         type = 'A' if isinstance(addr, IPv4Address) else 'AAAA'
@@ -143,6 +154,8 @@ def _get_args():
     parser.add_argument('-k', '--host-list',
                         metavar='HOST-FILE',
                         help='The json file contains hostname-key pairs.')
+    parser.add_argument('-K', '--key-file',
+                        help='The keyfile to use with nsupdate')
     parser.add_argument('-d', '--domain',
                         metavar='DOMAIN_SUFFIX',
                         help='Example: dyn.example.com')
