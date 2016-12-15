@@ -169,6 +169,7 @@ def _get_args():
                         help='The keyfile to use with nsupdate')
     parser.add_argument('-d', '--domain',
                         metavar='DOMAIN_SUFFIX',
+                        required=True,
                         help='Example: dyn.example.com')
     parser.add_argument('--nsupdate',
                         default='/usr/bin/nsupdate', metavar='NSUPDATE-PATH')
@@ -186,9 +187,6 @@ def _get_args():
 
 def main():
     args = _get_args()
-    if args.domain is None:
-        print('Please specify --domain.')
-        sys.exit(1)
 
     host_auth = None
     if args.host_list is not None:
