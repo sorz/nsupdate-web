@@ -82,6 +82,7 @@ celerybeat-schedule
 .venv/
 venv/
 ENV/
+virtualenv/
 
 # Spyder project settings
 .spyderproject
@@ -89,3 +90,5 @@ ENV/
 # Rope project settings
 .ropeproject
 
+# vim swap files
+\.*.swp
