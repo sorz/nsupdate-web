@@ -159,7 +159,7 @@ def update_record(host, addrs, args):
         return True, "success"
 
 
-def _get_args():
+def _get_args(args=None):
     parser = ArgumentParser(description='Web API for update DNS records.',
                             epilog='Author: Shell Chen <me@sorz.org>.')
     parser.add_argument('-l', '--listen-addr',
@@ -194,11 +194,11 @@ def _get_args():
                         default='3', type=int, metavar='SECONDS',
                         help='Max waitting time for nsupdate.')
 
-    return parser.parse_args()
+    return parser.parse_args(args)
 
 
 def main():
-    args = _get_args()
+    args = _get_args(sys.argv[1:])
 
     host_auth = None
     if args.host_list is not None:
