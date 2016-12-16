@@ -197,6 +197,35 @@ def _get_args(args=None):
     return parser.parse_args(args)
 
 
+class InitFailed(object):
+    def __init__(self, msg):
+        self.msg = msg
+
+    def __str__(self):
+        return "%s" % self.msg
+
+
+def get_server(args, host_auth=None):
+    if args.listen_addr.startswith('/'):
+        # A unix socket address
+        sock = Path(args.listen_addr)
+        if sock.is_socket():
+            sock.unlink()
+        if UnixHTTPServer is None:
+            raise InitFailed(
+                'Unix domain socket is unsupported on this platform.'
+            )
+        server = UnixHTTPServer(str(sock), HTTPRequestHandler)
+        sock.chmod(int(args.socket_mode, 8))
+    else:
+        server = HTTPServer((args.listen_addr, args.listen_port),
+                            HTTPRequestHandler)
+
+    server.args = args
+    server.host_auth = host_auth
+    return server
+
+
 def main():
     args = _get_args(sys.argv[1:])
 
@@ -210,22 +239,12 @@ def main():
             print(e)
             sys.exit(2)
 
-    if args.listen_addr.startswith('/'):
-        # A unix socket address
-        sock = Path(args.listen_addr)
-        if sock.is_socket():
-            sock.unlink()
-        if UnixHTTPServer is None:
-            print('Unix domain socket is unsupported on this platform.')
-            sys.exit(1)
-        server = UnixHTTPServer(str(sock), HTTPRequestHandler)
-        sock.chmod(int(args.socket_mode, 8))
-    else:
-        server = HTTPServer((args.listen_addr, args.listen_port),
-                            HTTPRequestHandler)
+    try:
+        server = get_server(args, host_auth)
+    except InitFailed as e:
+        print(str(e))
+        sys.exit(1)
 
-    server.args = args
-    server.host_auth = host_auth
     try:
         server.serve_forever()
     except KeyboardInterrupt:
