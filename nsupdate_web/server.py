@@ -103,7 +103,7 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
 
         try:
             ips = {ip_address(a) for a in ips}
-        except AddressValueError as e:
+        except (AddressValueError, ValueError) as e:
             self.send('broken address\n%s' % e, 400)
             return
         return ips
