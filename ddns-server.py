@@ -48,6 +48,24 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
         super().handle_one_request()
 
     def do_GET(self):
+        args = parse_qs(urlparse(self.path).query)
+        host = self.get_host(args)
+        ips = self.get_ips(args)
+        if not (host and ips):
+            return
+
+        if len(ips) > self.server.args.max_ip:
+            msg = 'too many addresses\nmax %s' % self.server.args.max_ip
+            self.send(msg, 400)
+            return
+
+        if self._host_ip_cache.get(host) == ips:
+            self.send('no-change', 200)
+            return
+
+        self.do_update(host, ips)
+
+    def get_host(self, args):
         if self.server.host_auth is not None:
             auth = self.headers.get('Authorization', '')
             if not auth.startswith('Basic '):
@@ -61,49 +79,43 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             if self.server.host_auth.get(host) != pwd:
                 self.send_unauthorized()
                 return
-
-        args = parse_qs(urlparse(self.path).query)
-        if self.server.host_auth is None:
+        else:
             try:
                 host = args['name'][0]
             except KeyError:
                 self.send("Must specify 'name'", 400)
                 return
+        return host
+
+    def get_ips(self, args):
         if 'ip' in args:
             try:
-                ip = [s.strip() for s in args['ip']]
+                ips = [s.strip() for s in args['ip']]
             except KeyError:
                 self.send("Must specify 'ip'", 400)
                 return
         elif 'X-Real-IP' in self.headers:
-            ip = [self.headers['X-Real-IP']]
-            self.client_address = (ip[0], self.client_address[1])
+            ips = [self.headers['X-Real-IP']]
+            self.client_address = (ips[0], self.client_address[1])
         else:
             self.send('no address', 400)
             return
 
         try:
-            ip = {ip_address(a) for a in ip}
+            ips = {ip_address(a) for a in ips}
         except AddressValueError as e:
             self.send('broken address\n%s' % e, 400)
             return
+        return ips
 
-        if len(ip) > self.server.args.max_ip:
-            msg = 'too many addresses\nmax %s' % self.server.args.max_ip
-            self.send(msg, 400)
-            return
-
-        if self._host_ip_cache.get(host) == ip:
-            self.send('no-change', 200)
-            return
-
+    def do_update(self, host, ips):
         ok, msg = update_record(
             host,
-            ip,
+            ips,
             self.server.args
         )
         if ok:
-            self._host_ip_cache[host] = ip
+            self._host_ip_cache[host] = ips
             self.send(msg, 200)
         else:
             self.send(msg, 500)
