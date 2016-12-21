@@ -2,49 +2,20 @@
 
 Simple DDNS (dynamic DNS) web API service with _nsupdate (8)_.
 
-It's a single-file Python 3 script accepting HTTP requests and changing DNS records on BIND server with _nsupdate (8)_.
+It's a small Python 3 library and companion script accepting HTTP requests
+and changing DNS records on BIND server with _nsupdate (8)_.
 
 ## Features
 
  * Update IP addresses with a simple `curl` or `wget` command
  * Support multiple _A_ and/or _AAAA_ records for each domain name
- * Pure Python, standard library only
+ * Pure Python, standard library only (aside from tests)
 
-## Usages
+## Usage
+See `./ddns-server.py --help`
 
 ### Start script
-Print usages:
-
-```
-$ ./ddns-server.py -h
-usage: ddns-server.py [-h] [-l ADDRESS] [-p PORT] [-m FILE-MODE]
-                      [-k HOST-FILE] [-d DOMAIN_SUFFIX]
-                      [--nsupdate NSUPDATE-PATH] [--ttl SECONDS]
-                      [--max-ip MAX-IP] [--timeout SECONDS]
-
-Web API for update DNS records.
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -l ADDRESS, --listen-addr ADDRESS
-                        The address bind to, default to 127.0.0.1. Set a path
-                        to listen on Unix domain socket.
-  -p PORT, --listen-port PORT
-  -m FILE-MODE, --socket-mode FILE-MODE
-                        File mode (chmod) of Unix domain socket, default to
-                        660. Ignored on TCP mode.
-  -k HOST-FILE, --host-list HOST-FILE
-                        The json file contains hostname-key pairs.
-  -d DOMAIN_SUFFIX, --domain DOMAIN_SUFFIX
-                        Example: dyn.example.com
-  --nsupdate NSUPDATE-PATH
-  --ttl SECONDS
-  --max-ip MAX-IP       Max allowed number of IPs on each name.
-  --timeout SECONDS     Max waitting time for nsupdate.
-
-```
-
-Serving _dyn.example.com_ on _127.0.0.1:8080_:
+Serving _dyn.example.com_ on _127.0.0.1:8080_, updating `named` on _localhost_ using a host file:
 ```
 $ ./ddns-server.py -l 127.0.0.1 -p 8080 -k hosts.json -d dyn.example.com
 ```
@@ -56,8 +27,13 @@ _hosts.json_ is a JSON file which contains all hostname-password pairs:
 }
 ```
 
+Serving _dyn.example.com_ on _127.0.0.1:8080_, updating `named` on _ns1.example.com_ using a key file:
+```
+./ddns-server.py -d dyn.example.com -K ./Kdyn.example.com.+123+12345.key -s ns1.example.com
+```
+
 ### Update addresses
-See examples below.
+When using a host file:
 ```
 $ curl https://test:pwd123@dyn.example.com/update
 > success
@@ -79,8 +55,20 @@ $ dig +short elder.dyn.example.com a
 
 ```
 
+Without a host file, if authentication is not needed:
+```
+$ curl "http://dyn.example.com:8080/update?name=test&ip=192.0.2.8"
+> success
+$ dig +short test.dyn.example.com
+> 192.0.2.8
+```
 
 ## Install
+From a `git` clone:
+```
+$ python setup.py install
+```
+After installation, `ddns-server` will be in `$PATH`
 
 ### Prerequisites
 
@@ -89,7 +77,9 @@ $ dig +short elder.dyn.example.com a
 * Nginx (for rewriting URLs and HTTPS support)
 * `nsupdate` (possibly included in BIND)
 
-Note that this script only communicate with BIND via `nsupdate`, so you have to configure your BIND server allowing updating records with `nsupdate` tool. 
+Note that this script only communicate with BIND via `nsupdate`, so you 
+ have to configure your BIND server allowing updating records with the
+ `nsupdate` tool.
 
 ### Run as a service
 
@@ -138,4 +128,3 @@ server {
     rewrite ^/nic/update$ /update last;
 }
 ```
-
