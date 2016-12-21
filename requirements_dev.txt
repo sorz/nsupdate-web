@@ -3,3 +3,4 @@ pytest==3.0.5
 mock==2.0.0
 setuptools>=31.0.0
 pytest-cov==2.4.0
+tox==2.5.0
