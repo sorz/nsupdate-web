@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 
 requirements = [line.strip() for line in
-                open('requirements.txt', 'r').readlines()]
+                open('requirements_dev.txt', 'r').readlines()]
 
 
 setup_args = dict(
@@ -15,7 +15,7 @@ setup_args = dict(
     url="https://github.com/sorz/nsupdate-web",
     license='MIT',
     packages=find_packages(),
-    install_requires=requirements,
+    test_require=requirements,
     entry_points=dict(
         console_scripts=[
             'ddns-server = nsupdate_web.server:main',
