@@ -3,6 +3,7 @@ import requests
 import threading
 
 from mock import patch
+from urllib.parse import urlencode
 
 from .. import server
 
@@ -14,6 +15,15 @@ class TestServer(object):
         ]
         self.argparse_args = server._get_args(self.sysv_args)
         self.base_url = 'http://localhost:8080'
+        self.url_params = dict(
+            host='localhost',
+            port='8080',
+            user='',
+            password='',
+            name=None,
+            ips=None,
+            secure=False,
+        )
         self.start_patchers()
 
     def start_patchers(self):
@@ -47,6 +57,32 @@ class TestServer(object):
     def stop_serving(self):
         self.server.shutdown()
         self.server.server_close()
+
+    def get_url(self, **url_params):
+        params = dict()
+        params.update(self.url_params)
+        params.update(url_params)
+        auth_str = '' if not params['user'] else \
+            "%s:%s@" % (params['user'], params['password'])
+        query_dict = dict()
+        name = params.get('name', '')
+        if name:
+            query_dict['name'] = name
+        ips = params.get('ips', [])
+        if ips:
+            if not isinstance(ips, str):
+                ips = ','.join(ips)
+            query_dict['ip'] = ips
+        query_str = urlencode(query_dict)
+        template = "{proto}://{auth}{host}:{port}/update{query}"
+        url = template.format(
+            proto='https' if params['secure'] else 'http',
+            auth=auth_str,
+            host=params['host'],
+            port=params['port'],
+            query='?' + query_str if query_str else '',
+        )
+        return url
 
     def test_default_args(self):
         args = self.argparse_args
@@ -102,4 +138,25 @@ class TestServer(object):
             self.base_url + '/update?name=foo&ip=not_an_ip'
         )
         assert not resp.ok
+        self.stop_serving()
+
+    def test_auth_request(self):
+        m_update_record = self.patches['update_record']['mock']
+        m_update_record.return_value = (True, 'success')
+        host_auth = dict(
+            foo='42',
+        )
+        self.server = server.get_server(
+            self.argparse_args,
+            host_auth=host_auth,
+        )
+        self.start_serving()
+        resp = requests.get(
+            self.get_url(name='foo', ips='10.1.1.1')
+        )
+        assert not resp.ok
+        resp = requests.get(
+            self.get_url(user='foo', password='42', ips='10.1.1.1')
+        )
+        assert resp.ok
         self.stop_serving()
