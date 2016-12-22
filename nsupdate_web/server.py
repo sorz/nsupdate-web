@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import re
 import sys
 import json
 from json import JSONDecodeError
@@ -85,6 +86,13 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             except KeyError:
                 self.send("Must specify 'name'", 400)
                 return
+        if self.server.args.allow_hosts and \
+                not re.match(self.server.args.allow_hosts, host):
+            self.send(
+                "%s does not match the allow_hosts regex" % host,
+                403
+            )
+            return
         return host
 
     def get_ips(self, args):
@@ -177,6 +185,9 @@ def _get_args(args=None):
     parser.add_argument('-k', '--host-list',
                         metavar='HOST-FILE',
                         help='The json file contains hostname-key pairs.')
+    parser.add_argument('-a', '--allow-hosts',
+                        help='Only accept updates for hosts matching this '
+                        'regular expression')
     parser.add_argument('-K', '--key-file',
                         help='The keyfile to use with nsupdate')
     parser.add_argument('-d', '--domain',

@@ -160,3 +160,27 @@ class TestServer(object):
         )
         assert resp.ok
         self.stop_serving()
+
+    def test_allow_hosts(self):
+        m_update_record = self.patches['update_record']['mock']
+        m_update_record.return_value = (True, 'success')
+        self.argparse_args.allow_hosts = 'foo[\d]+$'
+        self.server = server.get_server(self.argparse_args)
+        self.start_serving()
+        resp = requests.get(
+            self.get_url(name='foo', ips='10.1.1.1')
+        )
+        assert not resp.ok
+        resp = requests.get(
+            self.get_url(name='foo020', ips='10.1.1.1')
+        )
+        assert resp.ok
+        resp = requests.get(
+            self.get_url(name='foo001x', ips='10.1.1.1')
+        )
+        assert not resp.ok
+        resp = requests.get(
+            self.get_url(name='bar001', ips='10.1.1.1')
+        )
+        assert not resp.ok
+        self.stop_serving()
